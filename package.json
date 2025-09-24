@@ -1,0 +1,24 @@
+{
+  "type": "module",
+  "scripts": {
+    "build:css": "tailwindcss -i ./static/src/input.css -o ./static/css/output.css",
+    "watch:css": "tailwindcss -i ./static/src/input.css -o ./static/css/output.css --watch",
+    "build:js": "esbuild static/src/js/main.js --bundle --outfile=static/js/bundle.js --minify",
+    "watch:js": "esbuild static/src/js/main.js --bundle --outfile=static/js/bundle.js --watch",
+    "build": "npm-run-all --parallel build:*",
+    "dev": "npm-run-all --parallel watch:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.7",
+    "esbuild": "^0.25.1",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.5.3",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "tailwindcss": "^3.4.17"
+  },
+  "dependencies": {
+    "@alpinejs/persist": "^3.14.9",
+    "alpinejs": "^3.14.9",
+    "htmx.org": "2.0.7"
+  }
+}
