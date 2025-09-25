@@ -3,18 +3,28 @@
 
 """
 NPM Package Checker that checks packages in package.json
-- Installs packages using npm install --ignore-scripts
+- Installs packages using npm install --ignore-scripts to avoid running malicious scripts
 - Gets the list of installed packages using npm list --all --json
 - Using npm cli downloads the package.json file for each package
 - Parses the package.json file to check for the following:
     - If the package has a "scripts" section
     - If the package has a "devDependencies" section
     - If the package has a "dependencies" section
+    - Recurses into dependencies and devDependencies
 - If the package has a "scripts" section, it will check if the package has a "postinstall" script
 - If the package has a "devDependencies" section, it will check if the package has a "dev" script
 - If the package has a "dependencies" section, it will check if the package has a "install" script
 
 Displays the results for each package in a table format
+Displays warnings for suspicious install/postinstall scripts and known malicious SHA256 hashes
+
+TODO:
+- Add support for external list of malicious SHA256 hashes and files
+- Add support for checking for known malicious packages
+- Add more checks for
+    - Heuristic checks (eg various keywords in install/postinstall scripts, like 'aws', 'gcp', 'gh', etc)
+    - Signature checks (Where do we get malicious signatures?)
+- Don't use npm view. This is slow and can be slowed down by the network. Rather use the package.json file directly (already downloaded).
 """
 
 import argparse
