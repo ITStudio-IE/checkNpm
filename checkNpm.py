@@ -271,12 +271,21 @@ def check_for_suspicious_scripts(analyzed_packages, show_all=False):
 
             script_filename = None
             # if the script command contains a file path that exists, extract the filename
-            if os.path.exists(script_command):
-                script_filename = os.path.basename(script_command)
+            if os.path.exists(os.path.join(package_path, script_command)):
+                script_filename = script_command
             # if the script command includes the interpreter, extract the filename
             elif "node" in script_command:
                 if len(script_command.split()) > 1:
                     script_filename = script_command.split()[1]
+                    if not os.path.exists(os.path.join(package_path, script_filename)):
+                        # could be .js or .ts file
+                        script_filename_tmp = script_filename + ".js"
+                        if os.path.exists(os.path.join(package_path, script_filename_tmp)):
+                            script_filename = script_filename_tmp
+                        else:
+                            script_filename_tmp = script_filename + ".ts"
+                            if os.path.exists(os.path.join(package_path, script_filename)):
+                                script_filename = script_filename_tmp
             # Check for npm run <script_name> or npm install <package_name>
             elif "npm run" in script_command:
                 if len(script_command.split()) > 2:
