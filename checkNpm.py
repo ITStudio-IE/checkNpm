@@ -275,10 +275,12 @@ def check_for_suspicious_scripts(analyzed_packages, show_all=False):
                 script_filename = os.path.basename(script_command)
             # if the script command includes the interpreter, extract the filename
             elif "node" in script_command:
-                script_filename = script_command.split()[1]
+                if len(script_command.split()) > 1:
+                    script_filename = script_command.split()[1]
             # Check for npm run <script_name> or npm install <package_name>
             elif "npm run" in script_command:
-                script_filename = script_command.split()[2]
+                if len(script_command.split()) > 2:
+                    script_filename = script_command.split()[2]
             elif "npm install" in script_command:
                 # We need to print a warning for this case, as it could be a malicious package
                 logging.warning(
