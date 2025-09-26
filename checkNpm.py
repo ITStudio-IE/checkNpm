@@ -1,24 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-NPM Package Checker that checks packages in package.json
-- Installs packages using npm install --ignore-scripts to avoid running malicious scripts
-- Gets the list of installed packages using npm list --all --json
-- Using npm cli downloads the package.json file for each package
-- Parses the package.json file to check for the following:
-    - If the package has a "scripts" section
-    - If the package has a "devDependencies" section
-    - If the package has a "dependencies" section
-    - Recurses into dependencies and devDependencies
-- If the package has a "scripts" section, it will check if the package has a "postinstall" script
-- If the package has a "devDependencies" section, it will check if the package has a "dev" script
-- If the package has a "dependencies" section, it will check if the package has a "install" script
-
-Displays the results for each package in a table format
-Displays warnings for suspicious install/postinstall scripts and known malicious SHA256 hashes
-
-"""
 
 import argparse
 import hashlib

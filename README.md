@@ -1,5 +1,24 @@
 # checkNpm.py
 
+## Script Description
+
+NPM Package Checker that checks packages in package.json.
+- Installs packages using `npm install --ignore-scripts` to avoid running malicious scripts.
+- Gets the list of installed packages using `npm list --all --json`.
+- Using `npm cli`, downloads the `package.json` file for each package.
+- Parses the `package.json` file to check for the following:
+    - If the package has a "scripts" section.
+    - If the package has a "devDependencies" section.
+    - If the package has a "dependencies" section.
+    - Recurses into dependencies and devDependencies.
+- If the package has a "scripts" section, it will check if the package has a "postinstall" script.
+- If the package has a "devDependencies" section, it will check if the package has a "dev" script.
+- If the package has a "dependencies" section, it will check if the package has a "install" script.
+
+Displays the results for each package in a table format.
+Displays warnings for suspicious install/postinstall scripts and known malicious SHA256 hashes.
+Includes functionality to perform a deep scan of package contents, checking file hashes against a provided MalwareBazaar hash list.
+
 ## Purpose
 Identifies suspicious `postinstall` and `install` scripts, and known malicious SHA256 hashes within `package.json` files of Node.js packages.
 
@@ -49,5 +68,3 @@ Download the MalwareBazaar file and place it in the same directory as the script
 
 The file can be downloaded and unzipped:
 [MalwareBazaar 256 Hashes](https://bazaar.abuse.ch/export/txt/sha256/full/)
-
-
