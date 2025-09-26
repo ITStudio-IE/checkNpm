@@ -3,6 +3,8 @@
 ## Purpose
 Identifies suspicious `postinstall` and `install` scripts, and known malicious SHA256 hashes within `package.json` files of Node.js packages.
 
+This repository also contains an small example `package.json` file, which can be used to test the script. Since we want this example to go through the full download process, we don't save this package-lock.json to git.
+
 ## Usage
 
 *   **Basic Scan:**
