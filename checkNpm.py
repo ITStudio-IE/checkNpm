@@ -18,12 +18,6 @@ NPM Package Checker that checks packages in package.json
 Displays the results for each package in a table format
 Displays warnings for suspicious install/postinstall scripts and known malicious SHA256 hashes
 
-TODO: Add support for external list of malicious SHA256 hashes and files
-TODO: Add support for checking for known malicious packages
-TODO: Add more checks for
-    - Heuristic checks (eg various keywords in install/postinstall scripts, like 'aws', 'gcp', 'gh', etc)
-    - Signature checks (Where do we get malicious signatures?)
-DONE: Don't use npm view. This is slow and can be slowed down by the network. Rather use the package.json file directly (already downloaded).
 """
 
 import argparse
