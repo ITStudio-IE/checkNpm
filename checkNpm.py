@@ -28,6 +28,7 @@ import os
 import subprocess
 import sys
 import urllib.parse
+import time
 
 # ANSI escape codes for colors
 RED = "\033[91m"
@@ -441,13 +442,10 @@ def deep_scan(malwarebazaar_hashes, show_progress=False):
         return 0
 
     logging.info(f"Starting deep scan in '{node_modules_path}'...")
+    total_files = count_files_in_directory(node_modules_path)
     processed_files = 0
-    total_files = 1
-    if show_progress:
-        total_files = count_files_in_directory(node_modules_path)
-        if total_files == 0:
-            logging.info("No files found in node_modules directory. Skipping progress bar.")
-            show_progress = False
+    start_time = time.time()
+    last_eta_update_time = start_time
 
     for root, _, files in os.walk(node_modules_path):
         for file_name in files:
@@ -471,10 +469,20 @@ def deep_scan(malwarebazaar_hashes, show_progress=False):
                     f"{RED}ERROR: Could not read file '{file_path}' for deep scan: {e}{RESET}"
                 )
 
-            # Update progress bar
+            # Update progress bar and ETA
             if show_progress:
+                elapsed_time = time.time() - start_time
+                eta_string = ""
+                if processed_files > 0 and elapsed_time > 10 and (time.time() - last_eta_update_time) > 2:
+                    files_per_second = processed_files / elapsed_time
+                    remaining_files = total_files - processed_files
+                    eta_seconds = remaining_files / files_per_second
+                    minutes, seconds = divmod(int(eta_seconds), 60)
+                    eta_string = f" - ETA: {minutes:02d}m {seconds:02d}s"
+                    last_eta_update_time = time.time()
+
                 progress = (processed_files / total_files) * 100
-                sys.stdout.write(f"\r[{GREEN}{'#' * int(progress / 2)}{RESET}{YELLOW}{'-' * (50 - int(progress / 2))}{RESET}] {progress:.2f}% ({processed_files}/{total_files} files)")
+                sys.stdout.write(f"\r[{GREEN}{'#' * int(progress / 2)}{RESET}{YELLOW}{'-' * (50 - int(progress / 2))}{RESET}] {progress:.2f}% ({processed_files}/{total_files} files){eta_string}")
                 sys.stdout.flush()
 
     if show_progress:
@@ -530,6 +538,11 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO, format="%(message)s")
 
+    if args.malwarebazaar:
+        if not os.path.exists(args.malwarebazaar):
+            logging.error(f"MalwareBazaar file '{args.malwarebazaar}' does not exist.")
+            sys.exit(1)
+
     if args.deep:
         if not args.malwarebazaar:
             logging.error("MalwareBazaar file needs to be provided for deep scan.")
@@ -584,13 +597,13 @@ def main():
         malwarebazaar_hashes = load_malwarebazaar_hashes(args.malwarebazaar)
         logging.info(f"Loaded {len(malwarebazaar_hashes)} MalwareBazaar hashes.")
 
+    if check_for_suspicious_scripts(analyzed_packages, show_all=args.all, malwarebazaar_hashes=malwarebazaar_hashes):
+        sys.exit(1)
+
     if args.deep:
         logging.info("Performing deep scan...")
         if deep_scan(malwarebazaar_hashes, args.progress):
             sys.exit(1)
-
-    if check_for_suspicious_scripts(analyzed_packages, show_all=args.all, malwarebazaar_hashes=malwarebazaar_hashes):
-        sys.exit(1)
 
 
 if __name__ == "__main__":
