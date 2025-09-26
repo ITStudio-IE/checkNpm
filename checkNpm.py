@@ -18,13 +18,12 @@ NPM Package Checker that checks packages in package.json
 Displays the results for each package in a table format
 Displays warnings for suspicious install/postinstall scripts and known malicious SHA256 hashes
 
-TODO:
-- Add support for external list of malicious SHA256 hashes and files
-- Add support for checking for known malicious packages
-- Add more checks for
+TODO: Add support for external list of malicious SHA256 hashes and files
+TODO: Add support for checking for known malicious packages
+TODO: Add more checks for
     - Heuristic checks (eg various keywords in install/postinstall scripts, like 'aws', 'gcp', 'gh', etc)
     - Signature checks (Where do we get malicious signatures?)
-- Don't use npm view. This is slow and can be slowed down by the network. Rather use the package.json file directly (already downloaded).
+DONE: Don't use npm view. This is slow and can be slowed down by the network. Rather use the package.json file directly (already downloaded).
 """
 
 import argparse
@@ -45,8 +44,8 @@ RESET = "\033[0m"
 # Global constant for suspicious scripts with known malicious SHA256 hashes
 SUSPICIOUS_SCRIPTS_WITH_SHA256 = {
     "bundle.js": "46faab8ab153fae6e80e7cca38eab363075bb524edd79e42269217a083628f09",
-    "install.js": "N/A",
 }
+#    "install.js": "217fc70e4fb285deda6cfacce638d8a22e5b90d6ea3c644a0c18b10570bec8a1",
 
 
 def install_packages_ignore_scripts():
@@ -83,6 +82,7 @@ def get_initial_package_data():
     Get a list of installed packages using npm list --all --json if the root_package_name is None
     """
     try:
+        logging.debug("Running 'npm list --all --json'...")
         result = subprocess.run(
             ["npm", "list", "--all", "--json"],
             capture_output=True,
@@ -160,6 +160,7 @@ def get_package_info(package_name):
     """
     output = None
     try:
+        logging.debug(f"Running 'npm view {package_name} --json'...")
         result = subprocess.run(
             ["npm", "view", package_name, "--json"],
             capture_output=True,
@@ -187,6 +188,27 @@ def get_package_info(package_name):
         logging.exception(e)
         return None
 
+def get_package_info_from_file(package_path):
+    """
+    Gets the contents of the package.json file for a given package.
+    """
+    try:
+        logging.debug(f"Reading package.json file for package '{package_path}'...")
+        with open(os.path.join(package_path, "package.json"), "r") as f:
+            package_info = json.load(f)
+            return package_info
+    except FileNotFoundError as e:
+        logging.error(
+            f"Error: Could not find package.json file for package '{package_path}'."
+        )
+        logging.exception(e)
+        return None
+    except json.JSONDecodeError as e:
+        logging.error(
+            f"Error: Failed to parse JSON output for package '{package_path}'."
+        )
+        logging.exception(e)
+        return None
 
 def analyze_package(info, package_path):
     """
@@ -270,9 +292,11 @@ def display_results(analyzed_packages, show_all=False):
 def check_for_suspicious_scripts(analyzed_packages, show_all=False):
     """Checks for suspicious install/postinstall scripts and logs warnings."""
     warnings_issued = False
+    malicious_found = False
     malicious_sha256_values = set(SUSPICIOUS_SCRIPTS_WITH_SHA256.values())
 
     for pkg in analyzed_packages:
+        package_warnings_issued = False
         package_path = pkg["package_path"]
         for script_type in ["install_script", "postinstall_script"]:
             script_command = pkg[script_type]
@@ -306,6 +330,7 @@ def check_for_suspicious_scripts(analyzed_packages, show_all=False):
                     f"{RED}POSSIBLE WALWARE: Package '{pkg['name']}' has a {script_type.replace('_script', '')} script ('{script_command}') that references a package name, but we can't currently check it!{RESET}"
                 )
                 warnings_issued = True
+                package_warnings_issued = True
                 continue
             # Other checks can be added here, such as checking for specific keywords or patterns
             # ...
@@ -325,12 +350,14 @@ def check_for_suspicious_scripts(analyzed_packages, show_all=False):
                             f"{YELLOW}WARNING: Package '{pkg['name']}' has a {script_type.replace('_script', '')} script ('{script_command}') that references '{script_filename}', but the file was not found at '{script_file_path}'.{RESET}"
                         )
                         warnings_issued = True
+                        package_warnings_issued = True
                         continue
                     except Exception as e:
                         logging.error(
                             f"{RED}ERROR: Could not read script file '{script_file_path}' for package '{pkg['name']}': {e}{RESET}"
                         )
                         warnings_issued = True
+                        package_warnings_issued = True
                         continue
 
                     # First, check for SHA256 match against any known malicious hash
@@ -339,6 +366,8 @@ def check_for_suspicious_scripts(analyzed_packages, show_all=False):
                             f"{RED}MALWARE DETECTED: Package '{pkg['name']}' has a {script_type.replace('_script', '')} script ('{script_filename}') with a known malicious SHA256 hash ({script_hash}).{RESET}"
                         )
                         warnings_issued = True
+                        package_warnings_issued = True
+                        malicious_found = True
                         continue  # Move to the next script, as malware is already detected
 
                 # If no SHA256 malware, check for suspicious names in the command itself
@@ -348,6 +377,7 @@ def check_for_suspicious_scripts(analyzed_packages, show_all=False):
                             f"{YELLOW}WARNING: Package '{pkg['name']}' has a suspicious {script_type.replace('_script', '')} script command ('{script_command}') containing '{suspicious_name}'. The SHA256 ({script_hash}) of the file '{script_filename}' does not match known malware, but it is still suspicious.{RESET}"
                         )
                         warnings_issued = True
+                        package_warnings_issued = True
                         break  # Break from inner loop, move to next script_type
             else:
                 # If no specific script filename could be identified from the command,
@@ -358,17 +388,23 @@ def check_for_suspicious_scripts(analyzed_packages, show_all=False):
                             f"{YELLOW}WARNING: Package '{pkg['name']}' has a suspicious {script_type.replace('_script', '')} script command ('{script_command}') containing '{suspicious_name}'. Could not determine script file for SHA256 check.{RESET}"
                         )
                         warnings_issued = True
+                        package_warnings_issued = True
                         break
+        if show_all and not package_warnings_issued:
+            logging.info(f"{GREEN}{pkg['name']}: No suspicious scripts found.{RESET}")
 
     if not warnings_issued:
         logging.info(
             f"{GREEN}No suspicious install/postinstall scripts or known malware found.{RESET}"
         )
+    if malicious_found:
+        return 1
+    else:
+        return 0
 
 
 def main():
     """Main function for the NPM Package Checker."""
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     parser = argparse.ArgumentParser(
         description="NPM Package Checker for suspicious scripts."
@@ -379,7 +415,24 @@ def main():
         action="store_true",
         help="Show all packages, not just those with install/postinstall scripts.",
     )
+    parser.add_argument(
+        "-o",
+        "--online",
+        action="store_true",
+        help="Use online package.json files instead of local ones.",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Show verbose output.",
+    )
     args = parser.parse_args()
+
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(message)s")
+    else:
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     logging.info("Installing packages...")
     install_packages_ignore_scripts()
@@ -402,11 +455,17 @@ def main():
     logging.info(f"\nFound {len(packages_details)} packages to check. Analyzing...\n")
 
     analyzed_packages = []
+    if args.online:
+        logging.info(f" - Fetching info from npm registry, this may take a while...")
     for pkg_detail in packages_details:
         package_name = pkg_detail["name"]
         package_path = pkg_detail["path"]
-        logging.info(f" - Analyzing {package_name} in path {package_path}...")
-        info = get_package_info(package_name)
+        logging.debug(f" - Analyzing {package_name} in path {package_path}...")
+
+        if args.online:
+            info = get_package_info(package_name)
+        else:
+            info = get_package_info_from_file(package_path)
         if info:
             analysis_result = analyze_package(info, package_path)
             analyzed_packages.append(analysis_result)
@@ -414,7 +473,8 @@ def main():
     logging.info("\nAnalysis complete. Results:")
     display_results(analyzed_packages, show_all=args.all)
 
-    check_for_suspicious_scripts(analyzed_packages, show_all=args.all)
+    if check_for_suspicious_scripts(analyzed_packages, show_all=args.all):
+        sys.exit(1)
 
 
 if __name__ == "__main__":
