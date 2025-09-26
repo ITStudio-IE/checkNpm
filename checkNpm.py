@@ -430,7 +430,7 @@ def count_files_in_directory(directory):
         count += len(files)
     return count
 
-def deep_scan(malwarebazaar_hashes):
+def deep_scan(malwarebazaar_hashes, show_progress=False):
     """
     Performs a deep scan of package contents, checking file hashes against MalwareBazaar.
     """
@@ -441,8 +441,13 @@ def deep_scan(malwarebazaar_hashes):
         return 0
 
     logging.info(f"Starting deep scan in '{node_modules_path}'...")
-    total_files = count_files_in_directory(node_modules_path)
     processed_files = 0
+    total_files = 1
+    if show_progress:
+        total_files = count_files_in_directory(node_modules_path)
+        if total_files == 0:
+            logging.info("No files found in node_modules directory. Skipping progress bar.")
+            show_progress = False
 
     for root, _, files in os.walk(node_modules_path):
         for file_name in files:
@@ -467,11 +472,13 @@ def deep_scan(malwarebazaar_hashes):
                 )
 
             # Update progress bar
-            progress = (processed_files / total_files) * 100
-            sys.stdout.write(f"\r[{GREEN}{'#' * int(progress / 2)}{RESET}{YELLOW}{'-' * (50 - int(progress / 2))}{RESET}] {progress:.2f}% ({processed_files}/{total_files} files)")
-            sys.stdout.flush()
+            if show_progress:
+                progress = (processed_files / total_files) * 100
+                sys.stdout.write(f"\r[{GREEN}{'#' * int(progress / 2)}{RESET}{YELLOW}{'-' * (50 - int(progress / 2))}{RESET}] {progress:.2f}% ({processed_files}/{total_files} files)")
+                sys.stdout.flush()
 
-    sys.stdout.write("\n") # New line after progress bar completes
+    if show_progress:
+        sys.stdout.write("\n") # New line after progress bar completes
 
     if not malicious_found:
         logging.info(f"{GREEN}Deep scan completed: No malicious files found.{RESET}")
@@ -511,6 +518,11 @@ def main():
         action="store_true",
         help="Perform a deep scan of package contents.",
     )
+    parser.add_argument(
+        "--progress",
+        action="store_true",
+        help="Show progress bar during deep scan.",
+    )
     args = parser.parse_args()
 
     if args.verbose:
@@ -521,6 +533,10 @@ def main():
     if args.deep:
         if not args.malwarebazaar:
             logging.error("MalwareBazaar file needs to be provided for deep scan.")
+            sys.exit(1)
+    if args.progress:
+        if not args.deep:
+            logging.error("Progress bar can only be used with deep scan.")
             sys.exit(1)
 
     logging.info("Installing packages...")
@@ -570,7 +586,7 @@ def main():
 
     if args.deep:
         logging.info("Performing deep scan...")
-        if deep_scan(malwarebazaar_hashes):
+        if deep_scan(malwarebazaar_hashes, args.progress):
             sys.exit(1)
 
     if check_for_suspicious_scripts(analyzed_packages, show_all=args.all, malwarebazaar_hashes=malwarebazaar_hashes):
