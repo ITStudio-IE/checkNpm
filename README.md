@@ -30,3 +30,24 @@ This repository also contains an small example `package.json` file, which can be
     python3 checkNpm.py --verbose
     ```
     Shows detailed output for debugging and more information.
+
+*   **MalwareBazaar File Checking**
+    ```bash
+    python3 checkNpm.py --malwarebazaar full_sha256.txt
+    ```
+    Uses the MalwareBazaar file to check scripts for known malicious SHA256 hashes.
+
+*   **MalwareBazaar File Checking with Deep Scan**
+    ```bash
+    python3 checkNpm.py --malwarebazaar full_sha256.txt --deep
+    ```
+    Uses the MalwareBazaar file to check all files for known malicious SHA256 hashes. Will take a long time to run.
+
+** MalwareBazaar File Checking
+
+Download the MalwareBazaar file and place it in the same directory as the script with the name `full_sha256.txt`. This file contains a list of known malicious SHA256 hashes.
+
+The file can be downloaded and unzipped:
+[MalwareBazaar 256 Hashes](https://bazaar.abuse.ch/export/txt/sha256/full/)
+
+

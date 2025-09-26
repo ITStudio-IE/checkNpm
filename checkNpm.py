@@ -283,11 +283,15 @@ def display_results(analyzed_packages, show_all=False):
             logging.info(row_str)
 
 
-def check_for_suspicious_scripts(analyzed_packages, show_all=False):
+def check_for_suspicious_scripts(analyzed_packages, show_all=False, malwarebazaar_hashes=None):
     """Checks for suspicious install/postinstall scripts and logs warnings."""
+    if malwarebazaar_hashes is None:
+        malwarebazaar_hashes = []
+
     warnings_issued = False
     malicious_found = False
     malicious_sha256_values = set(SUSPICIOUS_SCRIPTS_WITH_SHA256.values())
+    malicious_sha256_values.update(malwarebazaar_hashes)
 
     for pkg in analyzed_packages:
         package_warnings_issued = False
@@ -397,6 +401,82 @@ def check_for_suspicious_scripts(analyzed_packages, show_all=False):
         return 0
 
 
+def load_malwarebazaar_hashes(filepath):
+    """
+    Loads SHA256 hashes from a file, ignoring lines starting with #.
+    """
+    hashes = []
+    try:
+        with open(filepath, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    hashes.append(line)
+    except FileNotFoundError:
+        logging.error(f"{RED}Error: MalwareBazaar file not found at '{filepath}'.{RESET}")
+        sys.exit(1)
+    except Exception as e:
+        logging.error(f"{RED}Error reading MalwareBazaar file '{filepath}': {e}{RESET}")
+        sys.exit(1)
+    return hashes
+
+
+def count_files_in_directory(directory):
+    """
+    Recursively counts the number of files in a given directory.
+    """
+    count = 0
+    for root, _, files in os.walk(directory):
+        count += len(files)
+    return count
+
+def deep_scan(malwarebazaar_hashes):
+    """
+    Performs a deep scan of package contents, checking file hashes against MalwareBazaar.
+    """
+    malicious_found = False
+    node_modules_path = "node_modules"
+    if not os.path.isdir(node_modules_path):
+        logging.info(f"No '{node_modules_path}' directory found for deep scan.")
+        return 0
+
+    logging.info(f"Starting deep scan in '{node_modules_path}'...")
+    total_files = count_files_in_directory(node_modules_path)
+    processed_files = 0
+
+    for root, _, files in os.walk(node_modules_path):
+        for file_name in files:
+            processed_files += 1
+            file_path = os.path.join(root, file_name)
+            try:
+                with open(file_path, "rb") as f:
+                    file_content = f.read()
+                file_hash = hashlib.sha256(file_content).hexdigest()
+
+                if file_hash in malwarebazaar_hashes:
+                    logging.error(
+                        f"{RED}MALWARE DETECTED (Deep Scan): File '{file_path}' has a known malicious SHA256 hash ({file_hash}).{RESET}"
+                    )
+                    malicious_found = True
+
+            except FileNotFoundError:
+                logging.debug(f"File not found during deep scan: '{file_path}'")
+            except Exception as e:
+                logging.error(
+                    f"{RED}ERROR: Could not read file '{file_path}' for deep scan: {e}{RESET}"
+                )
+
+            # Update progress bar
+            progress = (processed_files / total_files) * 100
+            sys.stdout.write(f"\r[{GREEN}{'#' * int(progress / 2)}{RESET}{YELLOW}{'-' * (50 - int(progress / 2))}{RESET}] {progress:.2f}% ({processed_files}/{total_files} files)")
+            sys.stdout.flush()
+
+    sys.stdout.write("\n") # New line after progress bar completes
+
+    if not malicious_found:
+        logging.info(f"{GREEN}Deep scan completed: No malicious files found.{RESET}")
+    return 1 if malicious_found else 0
+
 def main():
     """Main function for the NPM Package Checker."""
 
@@ -421,12 +501,27 @@ def main():
         action="store_true",
         help="Show verbose output.",
     )
+    parser.add_argument(
+        "--malwarebazaar",
+        type=str,
+        help="Path to a file containing MalwareBazaar SHA256 hashes (one per line, comments starting with # are ignored).",
+    )
+    parser.add_argument(
+        "--deep",
+        action="store_true",
+        help="Perform a deep scan of package contents.",
+    )
     args = parser.parse_args()
 
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(message)s")
     else:
         logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+    if args.deep:
+        if not args.malwarebazaar:
+            logging.error("MalwareBazaar file needs to be provided for deep scan.")
+            sys.exit(1)
 
     logging.info("Installing packages...")
     install_packages_ignore_scripts()
@@ -467,7 +562,18 @@ def main():
     logging.info("\nAnalysis complete. Results:")
     display_results(analyzed_packages, show_all=args.all)
 
-    if check_for_suspicious_scripts(analyzed_packages, show_all=args.all):
+    malwarebazaar_hashes = []
+    if args.malwarebazaar:
+        logging.info(f"Loading MalwareBazaar hashes from '{args.malwarebazaar}'...")
+        malwarebazaar_hashes = load_malwarebazaar_hashes(args.malwarebazaar)
+        logging.info(f"Loaded {len(malwarebazaar_hashes)} MalwareBazaar hashes.")
+
+    if args.deep:
+        logging.info("Performing deep scan...")
+        if deep_scan(malwarebazaar_hashes):
+            sys.exit(1)
+
+    if check_for_suspicious_scripts(analyzed_packages, show_all=args.all, malwarebazaar_hashes=malwarebazaar_hashes):
         sys.exit(1)
 
 

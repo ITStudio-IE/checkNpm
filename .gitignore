@@ -123,3 +123,4 @@ staticfiles/
 
 node_modules/
 package-lock.json
+full_sha256.txt

@@ -6,6 +6,7 @@
 - Add more checks for:
     - Heuristic checks (e.g., various keywords in install/postinstall scripts, like 'aws', 'gcp', 'gh', etc)
     - Signature checks (Where do we get malicious signatures?)
+- Add MalwareBazaar file checking
 
 ## DONE
 - Don't use npm view. This is slow and can be slowed down by the network. Rather use the package.json file directly (already downloaded).
