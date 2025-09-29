@@ -11,6 +11,8 @@ import subprocess
 import sys
 import urllib.parse
 import time
+import tempfile
+import shutil
 
 # ANSI escape codes for colors
 RED = "\033[91m"
@@ -513,6 +515,21 @@ def main():
         action="store_true",
         help="Show progress bar during deep scan.",
     )
+    parser.add_argument(
+        "--package-json",
+        type=str,
+        help="Path to the package.json file to use instead of the one in the current directory.",
+    )
+    parser.add_argument(
+        "--uselock",
+        action="store_true",
+        help="Additionally use the package-lock.json",
+    )
+    parser.add_argument(
+        "--copy-node-modules",
+        action="store_true",
+        help="Copy node_modules to tempdir",
+    )
     args = parser.parse_args()
 
     if args.verbose:
@@ -533,6 +550,37 @@ def main():
         if not args.deep:
             logging.error("Progress bar can only be used with deep scan.")
             sys.exit(1)
+
+    original_cwd = os.getcwd()
+
+    package_lock = None
+    tempdir = None
+    if args.package_json:
+        if not os.path.exists(args.package_json):
+            logging.error(f"package.json file '{args.package_json}' does not exist.")
+            sys.exit(1)
+        if args.uselock:
+            package_lock = os.path.join(os.path.dirname(args.package_json), "package-lock.json")
+            if not os.path.exists(package_lock):
+                logging.error(f"package-lock.json file '{package_lock}' does not exist.")
+                sys.exit(1)
+        tempdir = tempfile.mkdtemp()
+        logging.info(f"Copying package.json to {tempdir}...")
+        shutil.copyfile(args.package_json, os.path.join(tempdir, "package.json"))
+        if args.uselock and package_lock:
+            shutil.copyfile(package_lock, os.path.join(tempdir, "package-lock.json"))
+        # change to tempdir
+        logging.info(f"Changing to tempdir {tempdir}...")
+        os.chdir(tempdir)
+        if args.copy_node_modules:
+            node_modules = os.path.join(os.path.dirname(args.package_json), "node_modules")
+            logging.info(f"Copying node_modules to {tempdir}...")
+            shutil.copytree(node_modules, os.path.join(tempdir, "node_modules"))
+    else:
+        if args.uselock:
+            logging.error("package-json needs to be provided when using package-lock.json.")
+            sys.exit(1)
+
 
     logging.info("Installing packages...")
     install_packages_ignore_scripts()
@@ -586,6 +634,12 @@ def main():
         logging.info("Performing deep scan...")
         if deep_scan(malwarebazaar_hashes, args.progress):
             sys.exit(1)
+
+    if tempdir:
+        # logging.info(f"Removing tempdir {tempdir}...")
+        # shutil.rmtree(tempdir)
+        logging.info(f"TODO: Remove tempdir {tempdir}...")
+        os.chdir(original_cwd)
 
 
 if __name__ == "__main__":
