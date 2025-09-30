@@ -20,5 +20,6 @@
     "@alpinejs/persist": "^3.14.9",
     "alpinejs": "^3.14.9",
     "htmx.org": "2.0.7"
-  }
+  },
+  "license": "BSD-3-Clause-Attribution"
 }

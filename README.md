@@ -1,4 +1,5 @@
 # checkNpm.py
+Copyright (c) 2025 Manfred Schroeder (https://github.com/ITStudio-IE/checkNpm)
 ## Script Description
 NPM Package Checker that checks packages in package.json.
 - Installs packages using `npm install --ignore-scripts` to avoid running malicious scripts.

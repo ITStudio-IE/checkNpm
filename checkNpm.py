@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# Copyright (c) 2025 Manfred Schroeder
+# Licensed under the BSD 3-Clause Attribution License (the "License");
 
 
 import argparse
