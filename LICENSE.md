@@ -1,5 +1,7 @@
 © 2025 Manfred Schroeder (https://github.com/ITStudio-IE/checkNpm)
 
+BSD-3-Clause-Attribution
+
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
 
