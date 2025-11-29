@@ -23,8 +23,21 @@ YELLOW = "\033[93m"
 RESET = "\033[0m"
 
 # Global constant for suspicious scripts with known malicious SHA256 hashes
+# Each script name maps to a list of known malicious hashes
 SUSPICIOUS_SCRIPTS_WITH_SHA256 = {
-    "bundle.js": "46faab8ab153fae6e80e7cca38eab363075bb524edd79e42269217a083628f09",
+    "bundle.js": [
+        "46faab8ab153fae6e80e7cca38eab363075bb524edd79e42269217a083628f09",
+    ],
+    "setup_bun.js": [
+        "a3894003ad1d293ba96d77881ccd2071446dc3f65f434669b49b3da92421901a",
+    ],
+    "bun_environment.js": [
+        "62ee164b9b306250c1172583f138c9614139264f889fa99614903c12755468d0",
+        "e0250076c1d2ac38777ea8f542431daf61fcbaab0ca9c196614b28065ef5b918",
+        "cbb9bc5a8496243e02f3cc080efbe3e4a1430ba0671f2e43a202bf45b05479cd",
+        "f1df4896244500671eb4aa63ebb48ea11cee196fafaa0e9874e17b24ac053c02",
+        "f099c5d9ec417d4445a0328ac0ada9cde79fc37410914103ae9c609cbc0ee068",
+    ],
 }
 #    "install.js": "217fc70e4fb285deda6cfacce638d8a22e5b90d6ea3c644a0c18b10570bec8a1",
 
@@ -277,7 +290,9 @@ def check_for_suspicious_scripts(analyzed_packages, show_all=False, malwarebazaa
 
     warnings_issued = False
     malicious_found = False
-    malicious_sha256_values = set(SUSPICIOUS_SCRIPTS_WITH_SHA256.values())
+    malicious_sha256_values = set(
+        hash for hashes in SUSPICIOUS_SCRIPTS_WITH_SHA256.values() for hash in hashes
+    )
     malicious_sha256_values.update(malwarebazaar_hashes)
 
     for pkg in analyzed_packages:
